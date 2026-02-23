@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PlantID" />
+  <meta name="theme-color" content="#2d6a4f" />
+  <title>PlantID – Identify Any Plant</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-dark:   #1b4332;
+      --green-mid:    #2d6a4f;
+      --green-light:  #52b788;
+      --green-pale:   #d8f3dc;
+      --green-bg:     #f0faf2;
+      --accent:       #40916c;
+      --text-dark:    #1a2e22;
+      --text-mid:     #3d5a47;
+      --text-light:   #6b8f71;
+      --white:        #ffffff;
+      --card-shadow:  0 4px 24px rgba(27,67,50,0.10);
+      --radius:       18px;
+      --safe-top:     env(safe-area-inset-top, 0px);
+      --safe-bot:     env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--green-bg);
+      color: var(--text-dark);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ── Screens ──────────────────────────────────────────── */
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bot);
+      transition: opacity .3s ease, transform .3s ease;
+    }
+    .screen.hidden {
+      opacity: 0; pointer-events: none; transform: translateY(24px);
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px 12px;
+      background: var(--green-mid);
+      color: var(--white);
+    }
+    header h1 {
+      font-size: 20px; font-weight: 700; letter-spacing: -.3px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    header h1 .leaf { font-size: 22px; }
+    .icon-btn {
+      background: rgba(255,255,255,.18);
+      border: none; border-radius: 50%;
+      width: 38px; height: 38px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--white); font-size: 18px;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .icon-btn:active { background: rgba(255,255,255,.32); }
+
+    /* ── Scrollable content area ──────────────────────────── */
+    .content {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 20px 16px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* ── Hero upload zone ─────────────────────────────────── */
+    .upload-zone {
+      background: var(--white);
+      border: 2.5px dashed var(--green-light);
+      border-radius: var(--radius);
+      min-height: 220px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; padding: 24px;
+      transition: border-color .2s, background .2s;
+      cursor: pointer;
+      position: relative; overflow: hidden;
+    }
+    .upload-zone.has-image {
+      border-style: solid; border-color: var(--green-mid);
+      padding: 0; min-height: 260px;
+    }
+    .upload-zone img#preview {
+      width: 100%; height: 100%; object-fit: cover;
+      border-radius: calc(var(--radius) - 2px);
+      display: none;
+    }
+    .upload-zone.has-image img#preview { display: block; }
+    .upload-zone.has-image .upload-placeholder { display: none; }
+
+    .upload-placeholder {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .upload-placeholder .big-icon {
+      font-size: 56px; line-height: 1;
+      filter: drop-shadow(0 2px 6px rgba(82,183,136,.4));
+    }
+    .upload-placeholder p.main-text {
+      font-size: 16px; font-weight: 600; color: var(--text-mid);
+    }
+    .upload-placeholder p.sub-text {
+      font-size: 13px; color: var(--text-light); text-align: center; line-height: 1.5;
+    }
+
+    .image-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.35);
+      display: none; align-items: center; justify-content: center;
+      border-radius: calc(var(--radius) - 2px);
+    }
+    .upload-zone.has-image:active .image-overlay { display: flex; }
+    .image-overlay span { color: #fff; font-size: 14px; font-weight: 600; }
+
+    /* ── Button grid ──────────────────────────────────────── */
+    .btn-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+
+    .btn {
+      border: none; border-radius: var(--radius);
+      padding: 15px 10px;
+      font-size: 15px; font-weight: 600;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: transform .12s, opacity .12s;
+    }
+    .btn:active { transform: scale(.96); opacity: .88; }
+
+    .btn-camera {
+      background: var(--green-mid); color: var(--white);
+    }
+    .btn-library {
+      background: var(--green-pale); color: var(--green-dark);
+    }
+
+    .btn-identify {
+      background: linear-gradient(135deg, var(--green-mid), var(--green-dark));
+      color: var(--white);
+      font-size: 17px; padding: 18px;
+      border-radius: var(--radius);
+      box-shadow: 0 4px 18px rgba(45,106,79,.35);
+      width: 100%;
+    }
+    .btn-identify:disabled {
+      opacity: .45; cursor: default; box-shadow: none;
+    }
+    .btn-identify:disabled:active { transform: none; }
+
+    /* ── Hidden file inputs ───────────────────────────────── */
+    #fileCamera, #fileLibrary { display: none; }
+
+    /* ── Loading state ────────────────────────────────────── */
+    .loading-overlay {
+      position: fixed; inset: 0;
+      background: rgba(240,250,242,.92);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px; z-index: 100;
+      transition: opacity .3s;
+    }
+    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 56px; height: 56px;
+      border: 5px solid var(--green-pale);
+      border-top-color: var(--green-mid);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-overlay p {
+      font-size: 16px; font-weight: 600; color: var(--text-mid);
+    }
+    .loading-overlay small {
+      font-size: 13px; color: var(--text-light);
+    }
+
+    /* ── Result card ──────────────────────────────────────── */
+    .result-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      overflow: hidden;
+    }
+    .result-header {
+      background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+      padding: 20px;
+      color: var(--white);
+    }
+    .result-header .common-name {
+      font-size: 22px; font-weight: 700; margin-bottom: 4px;
+    }
+    .result-header .latin-name {
+      font-size: 14px; font-style: italic; opacity: .82;
+    }
+    .confidence-bar-wrap {
+      margin-top: 14px;
+    }
+    .confidence-label {
+      display: flex; justify-content: space-between;
+      font-size: 12px; opacity: .85; margin-bottom: 6px;
+    }
+    .confidence-bar-bg {
+      background: rgba(255,255,255,.25);
+      border-radius: 99px; height: 8px; overflow: hidden;
+    }
+    .confidence-bar-fill {
+      height: 100%; border-radius: 99px;
+      background: var(--white);
+      transition: width .8s cubic-bezier(.4,0,.2,1);
+    }
+
+    .care-section { padding: 18px 20px; }
+    .care-section h3 {
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .8px; color: var(--text-light); margin-bottom: 12px;
+    }
+    .care-grid {
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .care-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: var(--green-bg);
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .care-icon { font-size: 22px; flex-shrink: 0; }
+    .care-text { flex: 1; }
+    .care-text strong {
+      display: block; font-size: 13px; font-weight: 700;
+      color: var(--text-mid); margin-bottom: 2px;
+    }
+    .care-text span { font-size: 13px; color: var(--text-dark); line-height: 1.45; }
+
+    .extra-notes {
+      margin: 0 20px 18px;
+      background: var(--green-pale);
+      border-radius: 12px; padding: 12px 14px;
+      font-size: 13px; color: var(--green-dark); line-height: 1.5;
+    }
+    .extra-notes strong { display: block; margin-bottom: 4px; }
+
+    .btn-again {
+      margin: 0 20px 20px;
+      background: var(--green-pale); color: var(--green-dark);
+      border: none; border-radius: var(--radius);
+      padding: 14px; font-size: 15px; font-weight: 600;
+      width: calc(100% - 40px); cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: transform .12s;
+    }
+    .btn-again:active { transform: scale(.97); }
+
+    /* ── No plant found ───────────────────────────────────── */
+    .not-found {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 28px 20px; text-align: center;
+    }
+    .not-found .nf-icon { font-size: 48px; margin-bottom: 12px; }
+    .not-found h2 { font-size: 18px; margin-bottom: 8px; color: var(--text-dark); }
+    .not-found p { font-size: 14px; color: var(--text-light); line-height: 1.5; }
+
+    /* ── Error banner ─────────────────────────────────────── */
+    .error-banner {
+      background: #fef2f2; border: 1.5px solid #fca5a5;
+      border-radius: 12px; padding: 14px 16px;
+      font-size: 14px; color: #991b1b; line-height: 1.5;
+      display: none;
+    }
+    .error-banner.visible { display: block; }
+
+    /* ── Settings screen ──────────────────────────────────── */
+    #settingsScreen {
+      background: var(--green-bg);
+    }
+    .settings-content {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 24px 16px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .settings-card {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--card-shadow); padding: 20px;
+    }
+    .settings-card h2 {
+      font-size: 16px; font-weight: 700; color: var(--text-dark); margin-bottom: 6px;
+    }
+    .settings-card p {
+      font-size: 13px; color: var(--text-light); line-height: 1.5; margin-bottom: 14px;
+    }
+    .settings-card label {
+      font-size: 13px; font-weight: 600; color: var(--text-mid);
+      display: block; margin-bottom: 8px;
+    }
+    .settings-card input[type="password"],
+    .settings-card input[type="text"] {
+      width: 100%; border: 1.5px solid #d1d5db;
+      border-radius: 10px; padding: 12px 14px;
+      font-size: 14px; font-family: monospace;
+      background: #f9fafb; color: var(--text-dark);
+      outline: none; transition: border-color .2s;
+      -webkit-appearance: none;
+    }
+    .settings-card input:focus { border-color: var(--green-light); }
+    .settings-card .show-hide {
+      font-size: 12px; color: var(--accent); margin-top: 6px;
+      text-align: right; cursor: pointer; font-weight: 600;
+    }
+    .btn-save {
+      background: var(--green-mid); color: var(--white);
+      border: none; border-radius: var(--radius);
+      padding: 15px; font-size: 16px; font-weight: 700;
+      width: 100%; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .12s, opacity .12s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-save:active { transform: scale(.97); }
+    .save-success {
+      background: var(--green-pale); color: var(--green-dark);
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; font-weight: 600; text-align: center;
+      display: none;
+    }
+    .save-success.visible { display: block; }
+
+    .api-status {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-light);
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #d1d5db; flex-shrink: 0;
+    }
+    .status-dot.green { background: #22c55e; }
+    .status-dot.red   { background: #ef4444; }
+
+    .tip-box {
+      background: var(--green-pale); border-radius: 12px;
+      padding: 14px; font-size: 13px; color: var(--green-dark);
+      line-height: 1.55;
+    }
+    .tip-box strong { display: block; margin-bottom: 4px; font-size: 14px; }
+
+    /* ── Utility ──────────────────────────────────────────── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     MAIN SCREEN
+═══════════════════════════════════════════════ -->
+<div class="screen" id="mainScreen">
+  <header>
+    <h1><span class="leaf">🌿</span> PlantID</h1>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙️</button>
+  </header>
+
+  <div class="content" id="mainContent">
+
+    <!-- No-key warning -->
+    <div class="error-banner" id="noKeyBanner">
+      ⚠️ <strong>API key not set.</strong> Tap ⚙️ above to add your Anthropic API key before identifying plants.
+    </div>
+
+    <!-- Upload zone -->
+    <div class="upload-zone" id="uploadZone" role="button" aria-label="Tap to choose a photo">
+      <img id="preview" alt="Plant preview" />
+      <div class="image-overlay"><span>✏️ Change photo</span></div>
+      <div class="upload-placeholder">
+        <div class="big-icon">🪴</div>
+        <p class="main-text">Take or upload a plant photo</p>
+        <p class="sub-text">Point your camera at any plant<br>and let AI identify it instantly</p>
+      </div>
+    </div>
+
+    <!-- Camera / library buttons -->
+    <div class="btn-row">
+      <button class="btn btn-camera" id="cameraBtn">📷 Camera</button>
+      <button class="btn btn-library" id="libraryBtn">🖼️ Library</button>
+    </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="fileCamera"  accept="image/*" capture="environment" />
+    <input type="file" id="fileLibrary" accept="image/*" />
+
+    <!-- Identify button -->
+    <button class="btn btn-identify" id="identifyBtn" disabled>
+      🔍 Identify Plant
+    </button>
+
+    <!-- Error banner for API errors -->
+    <div class="error-banner" id="errorBanner"></div>
+
+    <!-- Result area -->
+    <div id="resultArea"></div>
+
+  </div><!-- /content -->
+</div><!-- /mainScreen -->
+
+
+<!-- ════════════════════════════════════════════
+     SETTINGS SCREEN
+═══════════════════════════════════════════════ -->
+<div class="screen hidden" id="settingsScreen">
+  <header>
+    <h1><span class="leaf">⚙️</span> Settings</h1>
+    <button class="icon-btn" id="closeSettingsBtn" aria-label="Close settings">✕</button>
+  </header>
+
+  <div class="settings-content">
+
+    <!-- API key card -->
+    <div class="settings-card">
+      <h2>🔑 Anthropic API Key</h2>
+      <p>Your key is stored only on this device and sent directly to Anthropic. It never passes through any other server.</p>
+
+      <label for="apiKeyInput">Paste your API key here:</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-…" autocomplete="off" autocorrect="off" />
+      <div class="show-hide" id="toggleKeyVis">Show key</div>
+
+      <br />
+      <div class="api-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">No key saved</span>
+      </div>
+    </div>
+
+    <button class="btn-save" id="saveKeyBtn">💾 Save API Key</button>
+    <div class="save-success" id="saveSuccess">✅ API key saved! You're ready to identify plants.</div>
+
+    <!-- Tips card -->
+    <div class="tip-box">
+      <strong>📸 Tips for best results</strong>
+      • Get close enough to see the leaves clearly<br />
+      • Make sure the plant is in focus and well-lit<br />
+      • Include a full leaf if possible<br />
+      • Avoid blurry or very dark photos
+    </div>
+
+    <!-- About card -->
+    <div class="settings-card">
+      <h2>ℹ️ About PlantID</h2>
+      <p>PlantID uses Claude's AI vision to identify plants from photos. Results are informational — always double-check care advice for rare or toxic plants.</p>
+      <p style="margin-bottom:0">Model: <strong>claude-opus-4-5</strong><br/>Made with ❤️ and 🌿</p>
+    </div>
+
+  </div>
+</div><!-- /settingsScreen -->
+
+
+<!-- ════════════════════════════════════════════
+     LOADING OVERLAY
+═══════════════════════════════════════════════ -->
+<div class="loading-overlay hidden" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p>Identifying your plant…</p>
+  <small>This usually takes 5–10 seconds</small>
+</div>
+
+
+<script>
+/* ─── State ──────────────────────────────────────────────── */
+let currentImageBase64 = null;
+let currentImageMime   = 'image/jpeg';
+
+/* ─── Element refs ───────────────────────────────────────── */
+const mainScreen      = document.getElementById('mainScreen');
+const settingsScreen  = document.getElementById('settingsScreen');
+const settingsBtn     = document.getElementById('settingsBtn');
+const closeSettingsBtn= document.getElementById('closeSettingsBtn');
+const uploadZone      = document.getElementById('uploadZone');
+const preview         = document.getElementById('preview');
+const fileCamera      = document.getElementById('fileCamera');
+const fileLibrary     = document.getElementById('fileLibrary');
+const cameraBtn       = document.getElementById('cameraBtn');
+const libraryBtn      = document.getElementById('libraryBtn');
+const identifyBtn     = document.getElementById('identifyBtn');
+const resultArea      = document.getElementById('resultArea');
+const errorBanner     = document.getElementById('errorBanner');
+const noKeyBanner     = document.getElementById('noKeyBanner');
+const loadingOverlay  = document.getElementById('loadingOverlay');
+const apiKeyInput     = document.getElementById('apiKeyInput');
+const saveKeyBtn      = document.getElementById('saveKeyBtn');
+const saveSuccess     = document.getElementById('saveSuccess');
+const statusDot       = document.getElementById('statusDot');
+const statusText      = document.getElementById('statusText');
+const toggleKeyVis    = document.getElementById('toggleKeyVis');
+
+/* ─── Init ───────────────────────────────────────────────── */
+function init() {
+  updateKeyStatus();
+  checkNoKeyBanner();
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+}
+
+/* ─── Navigation ─────────────────────────────────────────── */
+settingsBtn.addEventListener('click', () => {
+  mainScreen.classList.add('hidden');
+  settingsScreen.classList.remove('hidden');
+  const saved = localStorage.getItem('anthropic_api_key') || '';
+  apiKeyInput.value = saved;
+  updateKeyStatus();
+});
+
+closeSettingsBtn.addEventListener('click', () => {
+  settingsScreen.classList.add('hidden');
+  mainScreen.classList.remove('hidden');
+  checkNoKeyBanner();
+});
+
+/* ─── API key management ─────────────────────────────────── */
+function updateKeyStatus() {
+  const key = localStorage.getItem('anthropic_api_key');
+  if (key && key.startsWith('sk-ant-')) {
+    statusDot.className = 'status-dot green';
+    statusText.textContent = 'API key saved ✓';
+  } else {
+    statusDot.className = 'status-dot red';
+    statusText.textContent = 'No valid key saved';
+  }
+}
+
+function checkNoKeyBanner() {
+  const key = localStorage.getItem('anthropic_api_key');
+  noKeyBanner.classList.toggle('visible', !key || !key.startsWith('sk-ant-'));
+}
+
+saveKeyBtn.addEventListener('click', () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) {
+    alert('Please paste your API key first.');
+    return;
+  }
+  localStorage.setItem('anthropic_api_key', key);
+  updateKeyStatus();
+  saveSuccess.classList.add('visible');
+  setTimeout(() => saveSuccess.classList.remove('visible'), 3000);
+});
+
+toggleKeyVis.addEventListener('click', () => {
+  const isHidden = apiKeyInput.type === 'password';
+  apiKeyInput.type = isHidden ? 'text' : 'password';
+  toggleKeyVis.textContent = isHidden ? 'Hide key' : 'Show key';
+});
+
+/* ─── Photo capture ──────────────────────────────────────── */
+cameraBtn.addEventListener('click', () => fileCamera.click());
+libraryBtn.addEventListener('click', () => fileLibrary.click());
+
+// Tapping the upload zone when it already has an image prompts re-pick
+uploadZone.addEventListener('click', () => {
+  if (currentImageBase64) fileLibrary.click();
+});
+
+fileCamera.addEventListener('change',  e => handleFile(e.target.files[0]));
+fileLibrary.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if (!file) return;
+  clearResult();
+
+  // Reset inputs so same file can be re-selected
+  fileCamera.value  = '';
+  fileLibrary.value = '';
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    // Compress the image before storing — phone photos can be 5-10MB
+    // which causes network failures. We resize to max 1024px and compress.
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1024;
+      let { width, height } = img;
+
+      // Scale down if larger than MAX on either side
+      if (width > MAX || height > MAX) {
+        if (width > height) {
+          height = Math.round((height / width) * MAX);
+          width  = MAX;
+        } else {
+          width  = Math.round((width / height) * MAX);
+          height = MAX;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Export as JPEG at 85% quality — good balance of quality vs size
+      const compressed = canvas.toDataURL('image/jpeg', 0.85);
+      currentImageBase64 = compressed.split(',')[1];
+      currentImageMime   = 'image/jpeg';
+
+      preview.src = compressed;
+      uploadZone.classList.add('has-image');
+      identifyBtn.disabled = false;
+      errorBanner.classList.remove('visible');
+    };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ─── Identify ───────────────────────────────────────────── */
+identifyBtn.addEventListener('click', identifyPlant);
+
+async function identifyPlant() {
+  const apiKey = localStorage.getItem('anthropic_api_key');
+  if (!apiKey) {
+    showError('Please add your API key in ⚙️ Settings first.');
+    return;
+  }
+  if (!currentImageBase64) {
+    showError('Please choose a photo first.');
+    return;
+  }
+
+  clearResult();
+  showLoading(true);
+
+  const prompt = `You are an expert botanist. Analyze this plant photo carefully and respond with ONLY a JSON object (no markdown, no code fences, just raw JSON).
+
+If you can identify the plant, return:
+{
+  "identified": true,
+  "common_name": "Common Name",
+  "latin_name": "Genus species",
+  "confidence": 85,
+  "watering": "Brief watering advice (1-2 sentences)",
+  "light": "Brief light requirements (1-2 sentences)",
+  "soil": "Brief soil advice (1-2 sentences)",
+  "extra_tip": "One interesting or important care tip"
+}
+
+If no plant is visible or you cannot identify it, return:
+{
+  "identified": false,
+  "reason": "Short explanation of why"
+}
+
+Confidence is an integer 0-100 representing how certain you are.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-calls': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 512,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: currentImageMime,
+                data: currentImageBase64
+              }
+            },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      const msg = err?.error?.message || `HTTP ${response.status}`;
+      throw new Error(msg);
+    }
+
+    const data = await response.json();
+    const rawText = data.content[0].text.trim();
+
+    let result;
+    try {
+      // Claude might wrap in markdown fences; strip just in case
+      const cleaned = rawText.replace(/^```json\s*/i,'').replace(/```$/,'').trim();
+      result = JSON.parse(cleaned);
+    } catch {
+      throw new Error('Could not parse AI response. Please try again.');
+    }
+
+    showLoading(false);
+    renderResult(result);
+
+  } catch (err) {
+    showLoading(false);
+    if (err.message.includes('401') || err.message.toLowerCase().includes('auth')) {
+      showError('Invalid API key. Please check your key in ⚙️ Settings.');
+    } else if (err.message.includes('429')) {
+      showError('Rate limit reached. Please wait a moment and try again.');
+    } else {
+      showError('Error: ' + err.message);
+    }
+  }
+}
+
+/* ─── Render result ──────────────────────────────────────── */
+function renderResult(r) {
+  if (!r.identified) {
+    resultArea.innerHTML = `
+      <div class="not-found">
+        <div class="nf-icon">🔍</div>
+        <h2>Plant not identified</h2>
+        <p>${escHtml(r.reason || 'We couldn\'t identify a plant in this photo. Try a clearer, closer shot with good lighting.')}</p>
+      </div>`;
+    return;
+  }
+
+  const conf = Math.min(100, Math.max(0, r.confidence || 0));
+  const confLabel = conf >= 80 ? 'High confidence' : conf >= 50 ? 'Moderate confidence' : 'Low confidence';
+
+  resultArea.innerHTML = `
+    <div class="result-card">
+      <div class="result-header">
+        <div class="common-name">${escHtml(r.common_name || 'Unknown Plant')}</div>
+        <div class="latin-name">${escHtml(r.latin_name || '')}</div>
+        <div class="confidence-bar-wrap">
+          <div class="confidence-label">
+            <span>${confLabel}</span>
+            <span>${conf}%</span>
+          </div>
+          <div class="confidence-bar-bg">
+            <div class="confidence-bar-fill" id="confFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="care-section">
+        <h3>Care Guide</h3>
+        <div class="care-grid">
+          <div class="care-item">
+            <div class="care-icon">💧</div>
+            <div class="care-text">
+              <strong>Watering</strong>
+              <span>${escHtml(r.watering || 'No info')}</span>
+            </div>
+          </div>
+          <div class="care-item">
+            <div class="care-icon">☀️</div>
+            <div class="care-text">
+              <strong>Light</strong>
+              <span>${escHtml(r.light || 'No info')}</span>
+            </div>
+          </div>
+          <div class="care-item">
+            <div class="care-icon">🌱</div>
+            <div class="care-text">
+              <strong>Soil</strong>
+              <span>${escHtml(r.soil || 'No info')}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${r.extra_tip ? `
+      <div class="extra-notes">
+        <strong>💡 Pro tip</strong>
+        ${escHtml(r.extra_tip)}
+      </div>` : ''}
+
+      <button class="btn-again" id="tryAgainBtn">📷 Identify another plant</button>
+    </div>`;
+
+  // Animate confidence bar
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const fill = document.getElementById('confFill');
+      if (fill) fill.style.width = conf + '%';
+    });
+  });
+
+  document.getElementById('tryAgainBtn').addEventListener('click', resetApp);
+
+  // Scroll result into view
+  resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ─── Helpers ────────────────────────────────────────────── */
+function showLoading(on) {
+  loadingOverlay.classList.toggle('hidden', !on);
+}
+
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.classList.add('visible');
+  errorBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearResult() {
+  resultArea.innerHTML = '';
+  errorBanner.classList.remove('visible');
+}
+
+function resetApp() {
+  currentImageBase64 = null;
+  preview.src = '';
+  uploadZone.classList.remove('has-image');
+  identifyBtn.disabled = true;
+  clearResult();
+  // scroll back to top
+  document.getElementById('mainContent').scrollTop = 0;
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+/* ─── Start ──────────────────────────────────────────────── */
+init();
+</script>
+</body>
+</html>

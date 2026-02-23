@@ -1,0 +1,24 @@
+{
+  "name": "PlantID – Identify Any Plant",
+  "short_name": "PlantID",
+  "description": "Identify house plants instantly using AI vision",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0faf2",
+  "theme_color": "#2d6a4f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
