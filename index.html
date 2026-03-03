@@ -52,11 +52,11 @@
     .screen.hidden {
       opacity: 0; pointer-events: none; transform: translateY(20px);
     }
-    /* Overlay screens (detail, edit, settings) slide from right */
-    #detailScreen, #editScreen, #settingsScreen {
+    /* Overlay screens (detail, edit) slide from right */
+    #detailScreen, #editScreen {
       z-index: 20;
     }
-    #detailScreen.hidden, #editScreen.hidden, #settingsScreen.hidden {
+    #detailScreen.hidden, #editScreen.hidden {
       transform: translateX(100%);
       opacity: 1;
     }
@@ -374,60 +374,6 @@
     .error-banner.visible { display: block; }
 
     /* ══════════════════════════════════════════════════════
-       SETTINGS SCREEN
-    ══════════════════════════════════════════════════════ */
-    .settings-content {
-      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-      padding: 24px 16px; display: flex; flex-direction: column; gap: 20px;
-    }
-    .settings-card {
-      background: var(--white); border-radius: var(--radius);
-      box-shadow: var(--card-shadow); padding: 20px;
-    }
-    .settings-card h2 { font-size: 16px; font-weight: 700; color: var(--text-dark); margin-bottom: 6px; }
-    .settings-card p  { font-size: 13px; color: var(--text-light); line-height: 1.5; margin-bottom: 14px; }
-    .settings-card label {
-      font-size: 13px; font-weight: 600; color: var(--text-mid);
-      display: block; margin-bottom: 8px;
-    }
-    .settings-card input[type="password"],
-    .settings-card input[type="text"] {
-      width: 100%; border: 1.5px solid #d1d5db;
-      border-radius: 10px; padding: 12px 14px;
-      font-size: 14px; font-family: monospace;
-      background: #f9fafb; color: var(--text-dark);
-      outline: none; transition: border-color .2s; -webkit-appearance: none;
-    }
-    .settings-card input:focus { border-color: var(--green-light); }
-    .settings-card .show-hide {
-      font-size: 12px; color: var(--accent); margin-top: 6px;
-      text-align: right; cursor: pointer; font-weight: 600;
-    }
-    .btn-save {
-      background: var(--green-mid); color: var(--white); border: none;
-      border-radius: var(--radius); padding: 15px; font-size: 16px; font-weight: 700;
-      width: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent;
-      transition: transform .12s, opacity .12s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .btn-save:active { transform: scale(.97); }
-    .save-success {
-      background: var(--green-pale); color: var(--green-dark);
-      border-radius: 10px; padding: 10px 14px;
-      font-size: 13px; font-weight: 600; text-align: center; display: none;
-    }
-    .save-success.visible { display: block; }
-    .api-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-light); }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; flex-shrink: 0; }
-    .status-dot.green { background: #22c55e; }
-    .status-dot.red   { background: #ef4444; }
-    .tip-box {
-      background: var(--green-pale); border-radius: 12px; padding: 14px;
-      font-size: 13px; color: var(--green-dark); line-height: 1.55;
-    }
-    .tip-box strong { display: block; margin-bottom: 4px; font-size: 14px; }
-
-    /* ══════════════════════════════════════════════════════
        DETAIL SCREEN
     ══════════════════════════════════════════════════════ */
     .detail-content {
@@ -555,7 +501,7 @@
 <div class="screen hidden" id="gardenScreen">
   <header>
     <h1><span class="leaf">🌿</span> My Garden</h1>
-    <button class="icon-btn" id="gardenSettingsBtn" aria-label="Settings">⚙️</button>
+    <div style="width:36px"></div>
   </header>
 
   <div class="content" id="gardenContent">
@@ -587,15 +533,10 @@
 <div class="screen hidden" id="identifyScreen">
   <header>
     <h1><span class="leaf">🌿</span> Identify Plant</h1>
-    <button class="icon-btn" id="identifySettingsBtn" aria-label="Settings">⚙️</button>
+    <div style="width:36px"></div>
   </header>
 
   <div class="content" id="identifyContent">
-
-    <!-- No-key warning -->
-    <div class="error-banner" id="noKeyBanner">
-      ⚠️ <strong>API key not set.</strong> Tap ⚙️ above to add your Anthropic API key.
-    </div>
 
     <!-- Upload zone -->
     <div class="upload-zone" id="uploadZone" role="button" aria-label="Tap to choose a photo">
@@ -636,47 +577,6 @@
     <button class="tab-btn active" id="tabIdentify">
       <span class="tab-icon">🔍</span><span>Identify</span>
     </button>
-  </div>
-</div>
-
-
-<!-- ════════════════════════════════════════════
-     SETTINGS SCREEN (overlay)
-═══════════════════════════════════════════════ -->
-<div class="screen hidden" id="settingsScreen">
-  <header>
-    <button class="icon-btn" id="closeSettingsBtn" aria-label="Close">←</button>
-    <h1><span class="leaf">⚙️</span> Settings</h1>
-    <div style="width:36px"></div>
-  </header>
-
-  <div class="settings-content">
-    <div class="settings-card">
-      <h2>🔑 Anthropic API Key</h2>
-      <p>Stored only on this device and sent directly to Anthropic. It never passes through any other server.</p>
-      <label for="apiKeyInput">Paste your API key here:</label>
-      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-…" autocomplete="off" autocorrect="off" />
-      <div class="show-hide" id="toggleKeyVis">Show key</div>
-      <br />
-      <div class="api-status">
-        <div class="status-dot" id="statusDot"></div>
-        <span id="statusText">No key saved</span>
-      </div>
-    </div>
-    <button class="btn-save" id="saveKeyBtn">💾 Save API Key</button>
-    <div class="save-success" id="saveSuccess">✅ API key saved! You're ready to identify plants.</div>
-    <div class="tip-box">
-      <strong>📸 Tips for best results</strong>
-      • Get close enough to see the leaves clearly<br />
-      • Make sure the plant is in focus and well-lit<br />
-      • Include a full leaf if possible<br />
-      • Avoid blurry or very dark photos
-    </div>
-    <div class="settings-card">
-      <h2>ℹ️ About My Garden</h2>
-      <p>Uses Claude AI vision to identify plants from photos. Results are informational — always double-check care advice for rare or toxic plants.</p>
-      <p style="margin-bottom:0">Model: <strong>claude-opus-4-5</strong><br/>Made with ❤️ and 🌿</p>
-    </div>
   </div>
 </div>
 
@@ -793,8 +693,9 @@
 /* ═══════════════════════════════════════════════════════════
    DATA LAYER — localStorage CRUD
 ═══════════════════════════════════════════════════════════ */
-const DB_PLANTS = 'plantid_plants';
-const DB_SCANS  = 'plantid_scans';
+const DB_PLANTS  = 'plantid_plants';
+const DB_SCANS   = 'plantid_scans';
+const APP_SECRET = '931f0eb387244250c93eb2b212d3697e79e10b6cd69dff24ee7ac56cacc14588';
 
 function generateId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -841,14 +742,12 @@ let currentScanResult  = null;
 let currentScanId      = null;
 let currentPlantId     = null;
 let editingPlantId     = null;
-let lastMainScreen     = null; // set in init()
 
 /* ═══════════════════════════════════════════════════════════
    ELEMENT REFS
 ═══════════════════════════════════════════════════════════ */
 const gardenScreen    = document.getElementById('gardenScreen');
 const identifyScreen  = document.getElementById('identifyScreen');
-const settingsScreen  = document.getElementById('settingsScreen');
 const detailScreen    = document.getElementById('detailScreen');
 const editScreen      = document.getElementById('editScreen');
 const loadingOverlay  = document.getElementById('loadingOverlay');
@@ -858,7 +757,6 @@ const gardenContent   = document.getElementById('gardenContent');
 const gardenEmpty     = document.getElementById('gardenEmpty');
 const plantGrid       = document.getElementById('plantGrid');
 const emptyAddBtn     = document.getElementById('emptyAddBtn');
-const gardenSettingsBtn = document.getElementById('gardenSettingsBtn');
 
 // Identify
 const uploadZone      = document.getElementById('uploadZone');
@@ -870,17 +768,6 @@ const libraryBtn      = document.getElementById('libraryBtn');
 const identifyBtn     = document.getElementById('identifyBtn');
 const resultArea      = document.getElementById('resultArea');
 const errorBanner     = document.getElementById('errorBanner');
-const noKeyBanner     = document.getElementById('noKeyBanner');
-const identifySettingsBtn = document.getElementById('identifySettingsBtn');
-
-// Settings
-const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-const apiKeyInput      = document.getElementById('apiKeyInput');
-const saveKeyBtn       = document.getElementById('saveKeyBtn');
-const saveSuccess      = document.getElementById('saveSuccess');
-const statusDot        = document.getElementById('statusDot');
-const statusText       = document.getElementById('statusText');
-const toggleKeyVis     = document.getElementById('toggleKeyVis');
 
 // Detail
 const detailBackBtn     = document.getElementById('detailBackBtn');
@@ -910,7 +797,7 @@ const editMisidentified = document.getElementById('editMisidentified');
    NAVIGATION
 ═══════════════════════════════════════════════════════════ */
 const MAIN_SCREENS    = [gardenScreen, identifyScreen];
-const OVERLAY_SCREENS = [settingsScreen, detailScreen, editScreen];
+const OVERLAY_SCREENS = [detailScreen, editScreen];
 
 function showScreen(el, opts = {}) {
   // opts.overlay — don't hide main screens
@@ -927,12 +814,10 @@ function showScreen(el, opts = {}) {
 function goToGarden() {
   renderGarden();
   showScreen(gardenScreen, { closeOverlays: true });
-  lastMainScreen = gardenScreen;
 }
 
 function goToIdentify() {
   showScreen(identifyScreen, { closeOverlays: true });
-  lastMainScreen = identifyScreen;
 }
 
 // Tab bar
@@ -945,26 +830,6 @@ document.getElementById('tabIdentify').addEventListener('click', () => {
 
 // Empty state CTA
 emptyAddBtn.addEventListener('click', goToIdentify);
-
-// Settings (from garden)
-gardenSettingsBtn.addEventListener('click', () => {
-  apiKeyInput.value = localStorage.getItem('anthropic_api_key') || '';
-  updateKeyStatus();
-  showScreen(settingsScreen, { overlay: true });
-});
-
-// Settings (from identify)
-identifySettingsBtn.addEventListener('click', () => {
-  apiKeyInput.value = localStorage.getItem('anthropic_api_key') || '';
-  updateKeyStatus();
-  showScreen(settingsScreen, { overlay: true });
-});
-
-// Close settings → go back to last main screen
-closeSettingsBtn.addEventListener('click', () => {
-  settingsScreen.classList.add('hidden');
-  checkNoKeyBanner();
-});
 
 // Detail back → auto-save notes
 detailBackBtn.addEventListener('click', () => {
@@ -992,40 +857,6 @@ deleteBtn.addEventListener('click', () => {
 editBackBtn.addEventListener('click',   () => editScreen.classList.add('hidden'));
 cancelEditBtn.addEventListener('click', () => editScreen.classList.add('hidden'));
 saveEditBtn.addEventListener('click', saveEdit);
-
-/* ═══════════════════════════════════════════════════════════
-   SETTINGS
-═══════════════════════════════════════════════════════════ */
-function updateKeyStatus() {
-  const key = localStorage.getItem('anthropic_api_key');
-  if (key && key.startsWith('sk-ant-')) {
-    statusDot.className = 'status-dot green';
-    statusText.textContent = 'API key saved ✓';
-  } else {
-    statusDot.className = 'status-dot red';
-    statusText.textContent = 'No valid key saved';
-  }
-}
-
-function checkNoKeyBanner() {
-  const key = localStorage.getItem('anthropic_api_key');
-  noKeyBanner.classList.toggle('visible', !key || !key.startsWith('sk-ant-'));
-}
-
-saveKeyBtn.addEventListener('click', () => {
-  const key = apiKeyInput.value.trim();
-  if (!key) { alert('Please paste your API key first.'); return; }
-  localStorage.setItem('anthropic_api_key', key);
-  updateKeyStatus();
-  saveSuccess.classList.add('visible');
-  setTimeout(() => saveSuccess.classList.remove('visible'), 3000);
-});
-
-toggleKeyVis.addEventListener('click', () => {
-  const hide = apiKeyInput.type === 'password';
-  apiKeyInput.type = hide ? 'text' : 'password';
-  toggleKeyVis.textContent = hide ? 'Hide key' : 'Show key';
-});
 
 /* ═══════════════════════════════════════════════════════════
    GARDEN RENDERING
@@ -1206,8 +1037,6 @@ function handleFile(file) {
 identifyBtn.addEventListener('click', identifyPlant);
 
 async function identifyPlant() {
-  const apiKey = localStorage.getItem('anthropic_api_key');
-  if (!apiKey) { showError('Please add your API key in ⚙️ Settings first.'); return; }
   if (!currentImageBase64) { showError('Please choose a photo first.'); return; }
 
   clearResult();
@@ -1220,7 +1049,7 @@ async function identifyPlant() {
       body: JSON.stringify({
         imageBase64: currentImageBase64,
         imageMime:   currentImageMime,
-        apiKey
+        appSecret:   APP_SECRET
       })
     });
 
@@ -1257,7 +1086,7 @@ async function identifyPlant() {
   } catch (err) {
     showLoading(false);
     if (err.message.includes('401') || err.message.toLowerCase().includes('auth')) {
-      showError('Invalid API key. Please check your key in ⚙️ Settings.');
+      showError('Authorization error. Please try again.');
     } else if (err.message.includes('429')) {
       showError('Rate limit reached. Please wait a moment and try again.');
     } else {
@@ -1429,17 +1258,12 @@ function escHtml(str) {
    INIT
 ═══════════════════════════════════════════════════════════ */
 function init() {
-  updateKeyStatus();
-  checkNoKeyBanner();
-
   const plants = getPlants();
   if (plants.length > 0) {
     renderGarden();
     showScreen(gardenScreen);
-    lastMainScreen = gardenScreen;
   } else {
     showScreen(identifyScreen);
-    lastMainScreen = identifyScreen;
   }
 
   if ('serviceWorker' in navigator) {

@@ -1,23 +1,37 @@
 /* ─────────────────────────────────────────────────────────
    PlantID – Netlify Serverless Function
-   Acts as a proxy between the browser and Anthropic's API,
-   which avoids the CORS restriction that blocks direct
-   browser-to-Anthropic calls on hosted sites.
+   Reads API key from env var. Validates APP_SECRET from
+   request body to prevent unauthorized use.
 ───────────────────────────────────────────────────────── */
 
 exports.handler = async function (event) {
-  // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    const { imageBase64, imageMime, apiKey } = JSON.parse(event.body);
+    const { imageBase64, imageMime, appSecret } = JSON.parse(event.body);
 
-    if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+    // Validate the shared secret
+    const expectedSecret = process.env.APP_SECRET;
+    if (!expectedSecret) {
       return {
-        statusCode: 401,
-        body: JSON.stringify({ error: 'Invalid or missing API key' })
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Server not configured' })
+      };
+    }
+    if (!appSecret || appSecret !== expectedSecret) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: 'Unauthorized' })
+      };
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'API key not configured on server' })
       };
     }
 
