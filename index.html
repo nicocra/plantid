@@ -734,6 +734,51 @@ function updateScan(id, patch) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   REMOTE SYNC — Supabase via Netlify function
+   All calls are fire-and-forget; localStorage is always
+   updated first so the UI stays instant.
+═══════════════════════════════════════════════════════════ */
+const PLANTS_FN = '/.netlify/functions/plants';
+
+async function syncFromRemote() {
+  try {
+    const res = await fetch(PLANTS_FN, {
+      headers: { 'x-app-secret': APP_SECRET }
+    });
+    if (!res.ok) return;
+    const plants = await res.json();
+    if (!Array.isArray(plants)) return;
+    savePlants(plants);
+    // Re-render garden if it's currently visible
+    if (!gardenScreen.classList.contains('hidden')) renderGarden();
+  } catch (e) { /* silent — offline or not yet configured */ }
+}
+
+function remoteAddPlant(plant) {
+  fetch(PLANTS_FN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ appSecret: APP_SECRET, plant })
+  }).catch(() => {});
+}
+
+function remoteUpdatePlant(id, patch) {
+  fetch(PLANTS_FN, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ appSecret: APP_SECRET, id, patch })
+  }).catch(() => {});
+}
+
+function remoteDeletePlant(id) {
+  fetch(PLANTS_FN, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ appSecret: APP_SECRET, id })
+  }).catch(() => {});
+}
+
+/* ═══════════════════════════════════════════════════════════
    APP STATE
 ═══════════════════════════════════════════════════════════ */
 let currentImageBase64 = null;
@@ -834,7 +879,9 @@ emptyAddBtn.addEventListener('click', goToIdentify);
 // Detail back → auto-save notes
 detailBackBtn.addEventListener('click', () => {
   if (currentPlantId) {
-    updatePlant(currentPlantId, { notes: detailNotes.value });
+    const patch = { notes: detailNotes.value };
+    updatePlant(currentPlantId, patch);
+    remoteUpdatePlant(currentPlantId, patch);
   }
   detailScreen.classList.add('hidden');
   renderGarden(); // refresh card in case name changed
@@ -847,6 +894,7 @@ detailEditBtn.addEventListener('click', () => openEdit(currentPlantId));
 deleteBtn.addEventListener('click', () => {
   if (!currentPlantId) return;
   if (confirm('Remove this plant from your garden? This cannot be undone.')) {
+    remoteDeletePlant(currentPlantId);
     deletePlant(currentPlantId);
     detailScreen.classList.add('hidden');
     renderGarden();
@@ -981,12 +1029,14 @@ function saveEdit() {
   if (!editingPlantId) return;
   const name = editCommonName.value.trim();
   if (!name) { alert('Common name cannot be empty.'); return; }
-  updatePlant(editingPlantId, {
+  const patch = {
     common_name:   name,
     latin_name:    editLatinName.value.trim(),
     notes:         editNotes.value.trim(),
     misidentified: editMisidentified.checked
-  });
+  };
+  updatePlant(editingPlantId, patch);
+  remoteUpdatePlant(editingPlantId, patch);
   editScreen.classList.add('hidden');
   openDetail(editingPlantId); // refresh detail view
 }
@@ -1195,7 +1245,7 @@ function saveToGarden() {
   const isFlagged  = scanRecord ? !!scanRecord.flagged : false;
 
   const plantId = generateId();
-  addPlant({
+  const newPlant = {
     id:                plantId,
     common_name:       correctedName || r.common_name || 'Unknown Plant',
     latin_name:        r.latin_name  || '',
@@ -1207,7 +1257,9 @@ function saveToGarden() {
     extra_tip:         r.extra_tip || '',
     notes:             '',
     misidentified:     isFlagged && !!correctedName
-  });
+  };
+  addPlant(newPlant);
+  remoteAddPlant(newPlant);
 
   if (currentScanId) updateScan(currentScanId, { plant_id: plantId });
 
@@ -1265,6 +1317,9 @@ function init() {
   } else {
     showScreen(identifyScreen);
   }
+
+  // Background sync from Supabase — updates local cache silently
+  syncFromRemote();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
