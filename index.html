@@ -1663,6 +1663,37 @@ function renderDailyView() {
   }).join('');
 }
 
+// Returns ALL watering dates for a plant within the 7-day window.
+// Each entry: { dayMs, isOverdue }
+function getWateringDatesInWindow(plant, days) {
+  const freq        = parseWateringFreq(plant.watering);
+  const windowStart = days[0].getTime();
+  const windowEnd   = days[6].getTime();
+
+  let cursor = startOfDay(getNextWateringDate(plant)); // today if never watered
+  const entries = [];
+  let addedOverdue = false;
+
+  // Fast-forward through any overdue occurrences (mark only once in today's column)
+  while (cursor.getTime() < windowStart) {
+    if (!addedOverdue) {
+      entries.push({ dayMs: windowStart, isOverdue: true });
+      addedOverdue = true;
+    }
+    const nx = new Date(cursor); nx.setDate(nx.getDate() + freq); nx.setHours(0,0,0,0);
+    cursor = nx;
+  }
+
+  // Collect every occurrence within the 7-day window
+  while (cursor.getTime() <= windowEnd) {
+    entries.push({ dayMs: cursor.getTime(), isOverdue: false });
+    const nx = new Date(cursor); nx.setDate(nx.getDate() + freq); nx.setHours(0,0,0,0);
+    cursor = nx;
+  }
+
+  return entries;
+}
+
 function renderWeeklyView() {
   const plants = getPlants();
   const today  = startOfDay(new Date());
@@ -1687,20 +1718,15 @@ function renderWeeklyView() {
       <span class="th-day-num">${d.getDate()}</span>
     </th>`).join('');
 
-  // Data rows — one per plant
+  // Data rows — one per plant, ALL watering events in the window
   const rows = plants.map(p => {
-    const rawNext = getNextWateringDate(p);
-    // Clamp overdue dates to today so they appear in today's column
-    const next = rawNext
-      ? (rawNext.getTime() < today.getTime() ? today : startOfDay(rawNext))
-      : null;
-    const ml  = calcWaterAmount(p);
-    const isOverdue = rawNext && rawNext.getTime() < today.getTime();
+    const waterDates = getWateringDatesInWindow(p, days);
+    const ml = calcWaterAmount(p);
 
     const cells = days.map(d => {
-      const match = next && next.getTime() === d.getTime();
-      if (!match) return '<td class="wc-empty">·</td>';
-      const cls = isOverdue ? 'wc-due wc-overdue' : 'wc-due';
+      const entry = waterDates.find(w => w.dayMs === d.getTime());
+      if (!entry) return '<td class="wc-empty">·</td>';
+      const cls = entry.isOverdue ? 'wc-due wc-overdue' : 'wc-due';
       const label = ml ? `${ml}<span class="wc-unit">ml</span>` : '💧';
       return `<td class="${cls}">${label}</td>`;
     }).join('');
