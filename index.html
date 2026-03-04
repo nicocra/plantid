@@ -1036,7 +1036,7 @@ function startOfDay(d) {
 }
 
 function getNextWateringDate(plant) {
-  if (!plant.last_watered) return null;
+  if (!plant.last_watered) return startOfDay(new Date()); // never recorded → treat as due today
   const freq = parseWateringFreq(plant.watering);
   const next = new Date(plant.last_watered);
   next.setDate(next.getDate() + freq);
