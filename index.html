@@ -545,34 +545,37 @@
     .water-task-name { font-weight: 700; font-size: .95rem; color: var(--text-dark); }
     .water-task-ml   { font-size: .8rem; color: var(--text-light); margin-top: 2px; }
 
-    /* Weekly view */
-    .week-grid {
-      display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 14px;
+    /* Weekly table view */
+    .week-table-wrap { overflow-x: auto; padding: 0 12px 12px; }
+    .week-table {
+      width: 100%; border-collapse: collapse; font-size: .82rem; table-layout: fixed;
     }
-    .week-day {
-      background: var(--white); border-radius: 12px; padding: 8px 3px;
-      text-align: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.08);
-      border: 2px solid transparent; transition: border-color .15s;
-      -webkit-tap-highlight-color: transparent;
+    .week-table thead th {
+      padding: 8px 4px 6px; font-weight: 700; color: var(--text-light);
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .3px;
+      border-bottom: 2px solid var(--green-pale); text-align: center;
+      white-space: nowrap;
     }
-    .week-day.today { border-color: var(--green-mid); }
-    .week-day .day-label { font-size: .6rem; color: var(--text-light); text-transform: uppercase; }
-    .week-day .day-num   { font-size: 1.05rem; font-weight: 800; margin: 2px 0; color: var(--text-dark); }
-    .week-day .day-count { font-size: .65rem; color: var(--green-mid); font-weight: 700; }
-    .week-detail {
-      background: var(--white); border-radius: 14px; padding: 12px;
-      box-shadow: var(--card-shadow); display: none;
+    .week-table thead th.col-today { color: var(--green-dark); }
+    .week-table thead .th-day-num { font-size: 1rem; color: var(--text-dark); font-weight: 800; display: block; }
+    .wc-name-col { width: 110px; text-align: left !important; padding-left: 0 !important; }
+    .week-table tbody td {
+      padding: 7px 3px; text-align: center; border-bottom: 1px solid var(--green-pale);
+      vertical-align: middle;
     }
-    .week-detail.open { display: block; }
-    .week-detail-title {
-      font-size: .75rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .6px; color: var(--text-light); margin-bottom: 8px;
+    .week-table tbody tr:last-child td { border-bottom: none; }
+    .wc-name {
+      text-align: left; font-weight: 600; color: var(--text-dark); font-size: .8rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 110px; padding-right: 6px;
     }
-    .week-detail-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 8px 0; border-bottom: 1px solid var(--green-pale); font-size: .9rem;
+    .wc-due {
+      background: #e8f5e9; color: var(--green-dark); font-weight: 700;
+      border-radius: 6px; font-size: .8rem; line-height: 1.2;
     }
-    .week-detail-item:last-child { border-bottom: none; }
+    .wc-overdue { background: #fdecea; color: #c62828; }
+    .wc-unit { font-weight: 400; font-size: .65rem; color: var(--text-light); display: block; }
+    .wc-empty { color: #ddd; font-size: .75rem; }
 
     /* Empty schedule message */
     .schedule-empty {
@@ -1192,18 +1195,15 @@ document.getElementById('btnWeeklyView').addEventListener('click', () => {
 // Empty state CTA
 emptyAddBtn.addEventListener('click', goToIdentify);
 
-// Detail back → auto-save notes + pot info
+// Detail back → auto-save notes + pot info (always, no dirty flag needed)
 detailBackBtn.addEventListener('click', () => {
   if (currentPlantId) {
     const notesPatch = { notes: detailNotes.value };
     updatePlant(currentPlantId, notesPatch);
     remoteUpdatePlant(currentPlantId, notesPatch);
-    if (_detailPotDirty) {
-      const potPatch = buildPotPatch();
-      updatePlant(currentPlantId, potPatch);
-      remoteUpdatePlant(currentPlantId, potPatch);
-      _detailPotDirty = false;
-    }
+    const potPatch = buildPotPatch();
+    updatePlant(currentPlantId, potPatch);
+    remoteUpdatePlant(currentPlantId, potPatch);
   }
   detailScreen.classList.add('hidden');
   renderGarden(); // refresh card in case name changed
@@ -1669,53 +1669,57 @@ function renderWeeklyView() {
   const el     = document.getElementById('scheduleContent');
   if (!el) return;
 
+  if (!plants.length) {
+    el.innerHTML = `<div class="schedule-empty"><div class="se-icon">🌿</div>
+      <strong>No plants yet.</strong><br>Add plants from the Identify tab.</div>`;
+    return;
+  }
+
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today); d.setDate(d.getDate() + i); return d;
   });
 
-  const gridHtml = days.map((d, i) => {
-    const dMs = d.getTime();
-    const count = plants.filter(p => {
-      const next = getNextWateringDate(p);
-      return next && startOfDay(next).getTime() === dMs;
-    }).length;
-    return `
-      <div class="week-day${i === 0 ? ' today' : ''}" onclick="showWeekDay(${dMs})">
-        <div class="day-label">${dayLabels[d.getDay()]}</div>
-        <div class="day-num">${d.getDate()}</div>
-        <div class="day-count">${count ? count + ' 💧' : '—'}</div>
-      </div>`;
+  // Header row
+  const headerCells = days.map((d, i) => `
+    <th class="${i === 0 ? 'col-today' : ''}">
+      <span>${dayLabels[d.getDay()]}</span>
+      <span class="th-day-num">${d.getDate()}</span>
+    </th>`).join('');
+
+  // Data rows — one per plant
+  const rows = plants.map(p => {
+    const rawNext = getNextWateringDate(p);
+    // Clamp overdue dates to today so they appear in today's column
+    const next = rawNext
+      ? (rawNext.getTime() < today.getTime() ? today : startOfDay(rawNext))
+      : null;
+    const ml  = calcWaterAmount(p);
+    const isOverdue = rawNext && rawNext.getTime() < today.getTime();
+
+    const cells = days.map(d => {
+      const match = next && next.getTime() === d.getTime();
+      if (!match) return '<td class="wc-empty">·</td>';
+      const cls = isOverdue ? 'wc-due wc-overdue' : 'wc-due';
+      const label = ml ? `${ml}<span class="wc-unit">ml</span>` : '💧';
+      return `<td class="${cls}">${label}</td>`;
+    }).join('');
+
+    return `<tr>
+      <td class="wc-name" title="${escHtml(p.common_name)}">${escHtml(p.common_name)}</td>
+      ${cells}
+    </tr>`;
   }).join('');
 
   el.innerHTML = `
-    <div class="week-grid">${gridHtml}</div>
-    <div class="week-detail" id="weekDetail"></div>`;
-}
-
-function showWeekDay(ts) {
-  const plants = getPlants();
-  const d   = startOfDay(new Date(ts));
-  const det = document.getElementById('weekDetail');
-  if (!det) return;
-
-  const due = plants.filter(p => {
-    const next = getNextWateringDate(p);
-    return next && startOfDay(next).getTime() === d.getTime();
-  });
-
-  if (!due.length) { det.className = 'week-detail'; return; }
-
-  const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  det.className = 'week-detail open';
-  det.innerHTML = `<div class="week-detail-title">💧 ${escHtml(label)}</div>` +
-    due.map(p => {
-      const ml = calcWaterAmount(p);
-      return `<div class="week-detail-item">
-        <span>${escHtml(p.common_name)}</span>
-        <span style="color:var(--green-mid);font-weight:700">${ml ? ml + ' ml' : '—'}</span>
-      </div>`;
-    }).join('');
+    <div class="week-table-wrap">
+      <table class="week-table">
+        <thead><tr>
+          <th class="wc-name-col"></th>${headerCells}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 function markPlantWateredFromSchedule(id, checked) {
@@ -1729,10 +1733,7 @@ function markPlantWateredFromSchedule(id, checked) {
 /* ═══════════════════════════════════════════════════════════
    POT INFO — DETAIL SCREEN
 ═══════════════════════════════════════════════════════════ */
-let _detailPotDirty = false;
-
 function loadPotInfo(plant) {
-  _detailPotDirty = false;
   document.getElementById('potDiameter').value = plant.pot_diameter != null ? plant.pot_diameter : '';
   document.getElementById('potHeight').value   = plant.pot_height   != null ? plant.pot_height   : '';
   document.getElementById('potMaterial').value = plant.pot_material || '';
@@ -1740,6 +1741,10 @@ function loadPotInfo(plant) {
   document.getElementById('potDrainage').checked = plant.drainage !== false; // default true
   updateLastWateredLabel(plant);
   updateMarkWateredBtn(plant);
+  // Auto-expand if plant already has pot data
+  const hasPotData = plant.pot_diameter != null || plant.pot_height != null ||
+                     plant.pot_material || plant.location || plant.last_watered;
+  document.getElementById('potSection').classList.toggle('open', !!hasPotData);
 }
 
 function updateLastWateredLabel(plant) {
@@ -1778,9 +1783,14 @@ document.getElementById('potSectionHeader').addEventListener('click', () => {
   document.getElementById('potSection').classList.toggle('open');
 });
 
-// Mark dirty when any pot field changes
+// Save pot info immediately on any field change (belt + suspenders with back-button save)
 ['potDiameter', 'potHeight', 'potMaterial', 'potLocation', 'potDrainage'].forEach(elId => {
-  document.getElementById(elId).addEventListener('change', () => { _detailPotDirty = true; });
+  document.getElementById(elId).addEventListener('change', () => {
+    if (!currentPlantId) return;
+    const potPatch = buildPotPatch();
+    updatePlant(currentPlantId, potPatch);
+    remoteUpdatePlant(currentPlantId, potPatch);
+  });
 });
 
 // Mark as watered from detail screen

@@ -5,7 +5,7 @@
    which obviously needs an internet connection).
 ───────────────────────────────────────────────────────── */
 
-const CACHE_NAME = 'plantid-v6';
+const CACHE_NAME = 'plantid-v7';
 
 // Files that make up the app shell
 const SHELL_FILES = [
