@@ -585,6 +585,32 @@
     .schedule-empty .se-icon { font-size: 48px; margin-bottom: 12px; }
 
     /* ══════════════════════════════════════════════════════
+       NEXT WATERING CARD (detail screen)
+    ══════════════════════════════════════════════════════ */
+    .next-water-card {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--card-shadow); padding: 14px 16px;
+      border-left: 4px solid var(--green-mid);
+    }
+    .next-water-card.status-due   { border-left-color: var(--green-mid); background: #f0faf0; }
+    .next-water-card.status-overdue { border-left-color: #e53935; background: #fdecea; }
+    .next-water-card.status-ok    { border-left-color: #90caf9; }
+    .nw-label {
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; color: var(--text-light); margin-bottom: 3px;
+    }
+    .next-water-card.status-overdue .nw-label { color: #c62828; }
+    .next-water-card.status-due    .nw-label  { color: var(--green-dark); }
+    .nw-date { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+    .nw-ml   {
+      font-size: 1.25rem; font-weight: 800; color: var(--green-dark);
+      text-align: right; white-space: nowrap;
+    }
+    .nw-ml small { font-size: .65rem; font-weight: 400; color: var(--text-light); display: block; }
+    .next-water-card.status-overdue .nw-ml { color: #c62828; }
+
+    /* ══════════════════════════════════════════════════════
        POT INFO SECTION (detail screen)
     ══════════════════════════════════════════════════════ */
     .pot-section {
@@ -793,6 +819,15 @@
           <div class="care-grid" id="detailCareGrid"></div>
         </div>
         <div id="detailExtraTip"></div>
+      </div>
+
+      <!-- Next Watering -->
+      <div class="next-water-card" id="nextWaterCard">
+        <div class="nw-left">
+          <div class="nw-label" id="nwLabel">💧 Next Watering</div>
+          <div class="nw-date"  id="nwDate">—</div>
+        </div>
+        <div class="nw-ml" id="nwMl">—</div>
       </div>
 
       <!-- Notes -->
@@ -1767,10 +1802,51 @@ function loadPotInfo(plant) {
   document.getElementById('potDrainage').checked = plant.drainage !== false; // default true
   updateLastWateredLabel(plant);
   updateMarkWateredBtn(plant);
+  updateNextWateringCard(plant);
   // Auto-expand if plant already has pot data
   const hasPotData = plant.pot_diameter != null || plant.pot_height != null ||
                      plant.pot_material || plant.location || plant.last_watered;
   document.getElementById('potSection').classList.toggle('open', !!hasPotData);
+}
+
+function updateNextWateringCard(plant) {
+  const card  = document.getElementById('nextWaterCard');
+  const label = document.getElementById('nwLabel');
+  const date  = document.getElementById('nwDate');
+  const ml    = document.getElementById('nwMl');
+  if (!card) return;
+
+  const today  = startOfDay(new Date());
+  const next   = getNextWateringDate(plant);   // returns today if never watered
+  const status = getWateringStatus(plant);
+  const amount = calcWaterAmount(plant);
+  const amountHtml = amount
+    ? `${amount}<small>ml</small>`
+    : `💧<small>add pot info</small>`;
+
+  card.className = 'next-water-card status-' + (status === 'unknown' ? 'due' : status);
+
+  if (status === 'overdue') {
+    const daysOver = Math.round((today - startOfDay(next)) / 86400000);
+    label.textContent = `🔴 Overdue by ${daysOver} day${daysOver !== 1 ? 's' : ''}`;
+    date.textContent  = 'Water as soon as possible';
+  } else if (status === 'due' || status === 'unknown') {
+    label.textContent = '💧 Next Watering';
+    date.textContent  = 'Today';
+  } else {
+    // ok — compute friendly label
+    const daysAway = Math.round((startOfDay(next) - today) / 86400000);
+    label.textContent = '💧 Next Watering';
+    if (daysAway === 1) {
+      date.textContent = 'Tomorrow';
+    } else if (daysAway <= 6) {
+      date.textContent = next.toLocaleDateString('en-US', { weekday: 'long' }) + ` (in ${daysAway} days)`;
+    } else {
+      date.textContent = next.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    }
+  }
+
+  ml.innerHTML = amountHtml;
 }
 
 function updateLastWateredLabel(plant) {
@@ -1816,6 +1892,9 @@ document.getElementById('potSectionHeader').addEventListener('click', () => {
     const potPatch = buildPotPatch();
     updatePlant(currentPlantId, potPatch);
     remoteUpdatePlant(currentPlantId, potPatch);
+    // Refresh the next watering card since ml depends on pot dimensions
+    const updated = getPlants().find(p => p.id === currentPlantId);
+    if (updated) updateNextWateringCard(updated);
   });
 });
 
@@ -1829,6 +1908,7 @@ document.getElementById('btnMarkWatered').addEventListener('click', () => {
   if (updated) {
     updateLastWateredLabel(updated);
     updateMarkWateredBtn(updated);
+    updateNextWateringCard(updated);
   }
 });
 
